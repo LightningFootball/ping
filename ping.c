@@ -14,10 +14,20 @@ int main(int argc, char **argv)
 	struct addrinfo *ai;
 
 	opterr = 0; /* don't want getopt() writing to stderr */
-	while ((c = getopt(argc, argv, "v")) != -1)
-	{ //getopt 解析命令行参数
+	while ((c = getopt(argc, argv, "hv")) != -1)
+	/*
+		getopt 解析命令行参数
+		冒号表示参数
+			单冒号表示选项后面必带参数（无参数则报错）参数可和选项相连，也可以空格隔开
+			两冒号表示选项参数可选，注意：有参数则其与选项间不能有空格（有空格报错和单冒号有区别）
+	*/
+	{
 		switch (c)
 		{
+		case 'h':
+			printf("Usage: ping [-hv] [-h help] [-v verbose]\n");
+			exit(0);
+
 		case 'v':
 			verbose++;
 			break;
@@ -412,7 +422,9 @@ err_doit(int errnoflag, int level, const char *fmt, va_list ap)
 
 void err_quit(const char *fmt, ...)
 {
-	va_list ap;
+	va_list ap;		//处理可变参数
+
+	printf("err_quit\n");
 
 	va_start(ap, fmt);
 	err_doit(0, LOG_ERR, fmt, ap);
@@ -426,6 +438,8 @@ void err_quit(const char *fmt, ...)
 void err_sys(const char *fmt, ...)
 {
 	va_list ap;
+
+	printf("err_sys\n");
 
 	va_start(ap, fmt);
 	err_doit(1, LOG_ERR, fmt, ap);
