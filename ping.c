@@ -32,6 +32,10 @@ int main(int argc, char **argv)
 			verbose++;
 			break;
 
+		case 'b':
+			broadcast_pings++;
+			break;
+
 		case '?':
 			err_quit("unrecognized option: %c", (char)optopt);
 			/* optopt - Set to an option character which was unrecognized.  */
@@ -48,7 +52,23 @@ int main(int argc, char **argv)
 	if (host_serv(host, NULL, 0, 0) != NULL)
 	{
 		ai=host_serv(host, NULL, 0, 0);
-		printf("ping %s (%s): %d data bytes\n", ai->ai_canonname, Sock_ntop_host(ai->ai_addr, ai->ai_addrlen), datalen);
+
+		/*
+			检测目的地址是否为广播地址
+			仅支持IPv4
+		*/
+		int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+		if (connect(probe_fd, (struct sockaddr*)&ai, sizeof(ai)) == -1)
+		{
+			if(errno=EACCES)
+			{
+				if(broadcast_pings==0)
+				{
+					printf("Do you want to ping broadcast? Then -b. If not, check your local firewall rules.\n");
+					exit(0);
+				}
+			}
+		}
 	}
 	else
 	{
@@ -80,6 +100,8 @@ int main(int argc, char **argv)
 	pr->sasend = ai->ai_addr;
 	pr->sarecv = calloc(1, ai->ai_addrlen);
 	pr->salen = ai->ai_addrlen;
+
+	printf("ping %s (%s): %d data bytes\n", ai->ai_canonname, Sock_ntop_host(ai->ai_addr, ai->ai_addrlen), datalen);
 
 	readloop();
 
@@ -179,6 +201,9 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv)
 #endif /* IPV6 */
 }
 
+/*
+	验证校验和
+*/
 unsigned short
 in_cksum(unsigned short *addr, int len)
 {
@@ -263,8 +288,17 @@ void readloop(void)
 	setuid(getuid()); /* don't need special permissions any more */
 
 	size = 60 * 1024; /* OK if setsockopt fails */
-	setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
 
+	/*
+		通过修改socket描述符实现允许发送广播数据
+	*/
+	if(broadcast_pings==1)
+	{
+		setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &size, sizeof(size));
+	}
+
+	setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
+	
 	sig_alrm(SIGALRM); /* send first packet */
 
 	for (;;)
