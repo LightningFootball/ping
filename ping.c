@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 	struct addrinfo *ai;
 
 	opterr = 0; /* don't want getopt() writing to stderr */
-	while ((c = getopt(argc, argv, "bhv")) != -1)
+	while ((c = getopt(argc, argv, "bht:v")) != -1)
 	/*
 		getopt 解析命令行参数
 		冒号表示参数
@@ -24,16 +24,24 @@ int main(int argc, char **argv)
 	{
 		switch (c)
 		{
+		case 'b':
+			broadcast_pings++;
+			break;
+
 		case 'h':
 			printf("Usage: ping [-bhv] [-b broadcast] [-h help] [-v verbose]\n");
 			exit(0);
 
-		case 'v':
-			verbose++;
+		case 't':
+			ttl = atoi(optarg);
+			if (ttl < 0 || ttl > 255)
+			{
+				fprintf(stderr, "ping: ttl %u out of range\n");
+			}
 			break;
 
-		case 'b':
-			broadcast_pings++;
+		case 'v':
+			verbose++;
 			break;
 
 		case '?':
@@ -49,23 +57,33 @@ int main(int argc, char **argv)
 	pid = getpid();
 	signal(SIGALRM, sig_alrm);
 
-	if (host_serv(host, NULL, 0, 0) != NULL)
+	if (host_serv(host, NULL, AF_INET, 0) != NULL)
 	{
-		ai=host_serv(host, NULL, 0, 0);
+		ai = host_serv(host, NULL, 0, 0);
 
 		/*
 			检测目的地址是否为广播地址
 			仅支持IPv4
 		*/
 		int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
-		if (connect(probe_fd, (struct sockaddr*)&ai, sizeof(ai)) == -1)
+		if(probe_fd<0)
 		{
-			if(errno=EACCES)
+			perror("probe_fd error");
+		}
+		if ((connect(probe_fd,ai->ai_addr , ai->ai_addrlen) == -1) && (ttl == 0))
+		{
+			if (errno = EACCES)
 			{
-				if(broadcast_pings==0)
+				// printf("%d\n",atoi(ai->ai_addr->sa_data));
+				// if (IN_MULTICAST(ntohl(*(ai->ai_addr->sa_data))))
+				// {
+				// 	multicast++;
+				// }
+				// else
+				if (broadcast_pings == 0)
 				{
-					printf("Do you want to ping broadcast? Then -b. If not, check your local firewall rules.\n");
-					exit(0);
+					fprintf(stderr, "Do you want to ping broadcast? Then -b. If not, check your local firewall rules.\n");
+					exit(2);
 				}
 			}
 		}
@@ -77,7 +95,7 @@ int main(int argc, char **argv)
 	}
 
 	/* 4initialize according to protocol */
-	if(ai->ai_family == AF_INET)
+	if (ai->ai_family == AF_INET)
 	{
 		pr = &proto_v4;
 #ifdef IPV6
@@ -95,7 +113,6 @@ int main(int argc, char **argv)
 	{
 		err_quit("unknown address family %d", ai->ai_family);
 	}
-	
 
 	pr->sasend = ai->ai_addr;
 	pr->sarecv = calloc(1, ai->ai_addrlen);
@@ -144,6 +161,10 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv)
 		printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n",
 			   icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
 			   icmp->icmp_seq, ip->ip_ttl, rtt);
+	}
+	else if (icmp->icmp_type==ICMP_TIME_EXCEEDED)
+	{
+		printf("From %s icmp_seq=%u  Time to live exceeded\n",Sock_ntop_host(pr->sarecv,pr->salen),icmp->icmp_seq);
 	}
 	else if (verbose)
 	{
@@ -292,13 +313,27 @@ void readloop(void)
 	/*
 		通过修改socket描述符实现允许发送广播数据
 	*/
-	if(broadcast_pings==1)
+	if (broadcast_pings == 1)
 	{
 		setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &size, sizeof(size));
 	}
 
+	if (multicast == 1)
+	{
+		setsockopt(sockfd, SOL_IP, IP_MULTICAST_ALL, &size, sizeof(size));
+	}
+
+	if (ttl)
+	{
+		if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)))
+		{
+			perror("ping: can't set unicast time-to-live");
+			exit(2);
+		}
+	}
+
 	setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
-	
+
 	sig_alrm(SIGALRM); /* send first packet */
 
 	for (;;)
@@ -416,27 +451,27 @@ host_serv(const char *host, const char *serv, int family, int socktype)
 	if ((n = getaddrinfo(host, serv, &hints, &res)) != 0)
 		return (NULL);
 
-		// /* Error values for `getaddrinfo' function.  */
-		// 	# define EAI_BADFLAGS	  -1	/* Invalid value for `ai_flags' field.  */
-		// 	# define EAI_NONAME	  -2	/* NAME or SERVICE is unknown.  */
-		// 	# define EAI_AGAIN	  -3	/* Temporary failure in name resolution.  */
-		// 	# define EAI_FAIL	  -4	/* Non-recoverable failure in name res.  */
-		// 	# define EAI_FAMILY	  -6	/* `ai_family' not supported.  */
-		// 	# define EAI_SOCKTYPE	  -7	/* `ai_socktype' not supported.  */
-		// 	# define EAI_SERVICE	  -8	/* SERVICE not supported for `ai_socktype'.  */
-		// 	# define EAI_MEMORY	  -10	/* Memory allocation failure.  */
-		// 	# define EAI_SYSTEM	  -11	/* System error returned in `errno'.  */
-		// 	# define EAI_OVERFLOW	  -12	/* Argument buffer overflow.  */
-		// 	# ifdef __USE_GNU
-		// 	#  define EAI_NODATA	  -5	/* No address associated with NAME.  */
-		// 	#  define EAI_ADDRFAMILY  -9	/* Address family for NAME not supported.  */
-		// 	#  define EAI_INPROGRESS  -100	/* Processing request in progress.  */
-		// 	#  define EAI_CANCELED	  -101	/* Request canceled.  */
-		// 	#  define EAI_NOTCANCELED -102	/* Request not canceled.  */
-		// 	#  define EAI_ALLDONE	  -103	/* All requests done.  */
-		// 	#  define EAI_INTR	  -104	/* Interrupted by a signal.  */
-		// 	#  define EAI_IDN_ENCODE  -105	/* IDN encoding failed.  */
-		// 	# endif
+	// /* Error values for `getaddrinfo' function.  */
+	// 	# define EAI_BADFLAGS	  -1	/* Invalid value for `ai_flags' field.  */
+	// 	# define EAI_NONAME	  -2	/* NAME or SERVICE is unknown.  */
+	// 	# define EAI_AGAIN	  -3	/* Temporary failure in name resolution.  */
+	// 	# define EAI_FAIL	  -4	/* Non-recoverable failure in name res.  */
+	// 	# define EAI_FAMILY	  -6	/* `ai_family' not supported.  */
+	// 	# define EAI_SOCKTYPE	  -7	/* `ai_socktype' not supported.  */
+	// 	# define EAI_SERVICE	  -8	/* SERVICE not supported for `ai_socktype'.  */
+	// 	# define EAI_MEMORY	  -10	/* Memory allocation failure.  */
+	// 	# define EAI_SYSTEM	  -11	/* System error returned in `errno'.  */
+	// 	# define EAI_OVERFLOW	  -12	/* Argument buffer overflow.  */
+	// 	# ifdef __USE_GNU
+	// 	#  define EAI_NODATA	  -5	/* No address associated with NAME.  */
+	// 	#  define EAI_ADDRFAMILY  -9	/* Address family for NAME not supported.  */
+	// 	#  define EAI_INPROGRESS  -100	/* Processing request in progress.  */
+	// 	#  define EAI_CANCELED	  -101	/* Request canceled.  */
+	// 	#  define EAI_NOTCANCELED -102	/* Request not canceled.  */
+	// 	#  define EAI_ALLDONE	  -103	/* All requests done.  */
+	// 	#  define EAI_INTR	  -104	/* Interrupted by a signal.  */
+	// 	#  define EAI_IDN_ENCODE  -105	/* IDN encoding failed.  */
+	// 	# endif
 
 	return (res); /* return pointer to first on linked list */
 }
@@ -477,7 +512,7 @@ err_doit(int errnoflag, int level, const char *fmt, va_list ap)
 
 void err_quit(const char *fmt, ...)
 {
-	va_list ap;		//处理可变参数
+	va_list ap; //处理可变参数
 
 	printf("err_quit\n");
 

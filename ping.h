@@ -42,7 +42,9 @@ int	 nsent;			/* add 1 for each sendto() */	//number that send
 pid_t pid;			/* our PID */
 int	 sockfd;	//socket file discriptor
 int	 verbose;
+int multicast;
 int	broadcast_pings;
+int	ttl;
 int    daemon_proc;            /* set nonzero by daemon_init() */
 
 /* function prototypes */
