@@ -39,22 +39,30 @@ char	 sendbuf[BUFSIZE];
 int    datalen;	/* #bytes of data, following ICMP header */ //实际为IP
 char	*host;
 int	 nsent;			/* add 1 for each sendto() */	//number that send
+int	receivedPacketNumber;
 pid_t pid;			/* our PID */
 int	 sockfd;	//socket file discriptor
+
+double rttMax,rttMin,rttSum;
+
+/*option flags*/
 int	 verbose;
 int multicast;
 int	broadcast_pings;
 int	ttl;
+int quietOutput;	/* fun fact: bool is not a keyword in C, it's a key word of C++ */
+
 int    daemon_proc;            /* set nonzero by daemon_init() */
 
 /* function prototypes */
-void	 proc_v4(char *, ssize_t, struct timeval *);
-void	 proc_v6(char *, ssize_t, struct timeval *);
-void	 send_v4(void);
-void	 send_v6(void);
-void	 readloop(void);
-void	 sig_alrm(int);
-void	 tv_sub(struct timeval *, struct timeval *);
+void	proc_v4(char *, ssize_t, struct timeval *);
+void	proc_v6(char *, ssize_t, struct timeval *);
+void	send_v4(void);
+void	send_v6(void);
+void	readloop(void);
+void	sig_alrm(int);
+void	Statistic();
+void	tv_sub(struct timeval *, struct timeval *);
 
 char * Sock_ntop_host(const struct sockaddr *sa, socklen_t salen);
 struct addrinfo* host_serv(const char *host, const char *serv, int family, int socktype);

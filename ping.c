@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 	struct addrinfo *ai;
 
 	opterr = 0; /* don't want getopt() writing to stderr */
-	while ((c = getopt(argc, argv, "bht:v")) != -1)
+	while ((c = getopt(argc, argv, "bhqt:v")) != -1)
 	/*
 		getopt 解析命令行参数
 		冒号表示参数
@@ -31,6 +31,10 @@ int main(int argc, char **argv)
 		case 'h':
 			printf("Usage: ping [-bhv] [-b broadcast] [-h help] [-v verbose]\n");
 			exit(0);
+
+		case 'q':
+			quietOutput++;
+			break;
 
 		case 't':
 			ttl = atoi(optarg);
@@ -56,8 +60,9 @@ int main(int argc, char **argv)
 
 	pid = getpid();
 	signal(SIGALRM, sig_alrm);
+	signal(SIGINT,Statistic);
 
-	if (host_serv(host, NULL, AF_INET, 0) != NULL)
+	if (host_serv(host, NULL, 0, 0) != NULL)
 	{
 		ai = host_serv(host, NULL, 0, 0);
 
@@ -157,6 +162,24 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv)
 		tvsend = (struct timeval *)icmp->icmp_data;
 		tv_sub(tvrecv, tvsend);
 		rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
+
+		receivedPacketNumber++;
+
+		if(rttMax==0&&rttMin==0)
+		{
+			rttMax=rtt;
+			rttMin=rtt;
+		}
+		if (rttMax<rtt)
+		{
+			rttMax=rtt;
+		}else if(rttMin>rtt)
+		{
+			rttMin=rtt;
+		}
+		rttSum+=rtt;
+		
+
 
 		printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n",
 			   icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
@@ -364,6 +387,16 @@ void sig_alrm(int signo)
 
 	alarm(1);
 	return; /* probably interrupts recvfrom() */
+}
+
+void Statistic()
+{
+	fprintf(stderr,"\n");
+	fprintf(stderr,"---- %s ping statistics ----\n",host);
+	fprintf(stderr,"%d packets transmitted, %d received, %d%% packet loss.\n",nsent,receivedPacketNumber,
+			100-receivedPacketNumber/nsent*100);
+	fprintf(stderr,"rtt max/min/sum/avg %.3f/%.3f/%.3f/%.3f ms\n",rttMax,rttMin,rttSum,rttSum/receivedPacketNumber);
+	exit(0);
 }
 
 void tv_sub(struct timeval *out, struct timeval *in)
