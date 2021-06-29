@@ -14,7 +14,9 @@ int main(int argc, char **argv)
 	struct addrinfo *ai;
 
 	opterr = 0; /* don't want getopt() writing to stderr */
-	while ((c = getopt(argc, argv, "bhqt:v")) != -1)
+	while ((c = getopt(argc, argv, "4b"
+								   "6"
+								   "hqt:v")) != -1)
 	/*
 		getopt 解析命令行参数
 		冒号表示参数
@@ -24,13 +26,21 @@ int main(int argc, char **argv)
 	{
 		switch (c)
 		{
+		case '4':
+			expectProtocolVersion = AF_INET;
+			break;
+
 		case 'b':
 			broadcast_pings++;
 			break;
 
+		case '6':
+			expectProtocolVersion = AF_INET6;
+			break;
+
 		case 'h':
-			printf("Usage: ping [-bhv] [-b broadcast] [-h help] [-q quiet output]\n\t    "\
-			"[-t ttl] [-v verbose]\n");
+			printf("Usage: ping [-bhv] [-b broadcast] [-h help] [-q quiet output]\n\t    "
+				   "[-t ttl] [-v verbose]\n");
 			exit(0);
 
 		case 'q':
@@ -61,37 +71,88 @@ int main(int argc, char **argv)
 
 	pid = getpid();
 	signal(SIGALRM, sig_alrm);
-	signal(SIGINT,Statistic);
+	signal(SIGINT, Statistic);
 
-	if (host_serv(host, NULL, 0, 0) != NULL)
+	int supV4=0;
+	int supV6=0;
+	if (host_serv(host, NULL, AF_INET, 0)!=NULL)
 	{
-		ai = host_serv(host, NULL, 0, 0);
-
-		/*
-			检测目的地址是否为广播地址
-		*/
-		int probe_fd;
-		if(ai->ai_family==AF_INET6)
+		supV4++;
+	}
+	if(host_serv(host, NULL, AF_INET6, 0)!=NULL)
+	{
+		supV6++;
+	}
+	if(supV4||supV6)
+	{
+		printf("The host support");
+		if(supV4)
 		{
-			probe_fd = socket(AF_INET6, SOCK_DGRAM, 0);
-		}else
-		{
-			probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+			printf(" IPv4");
 		}
+		if(supV4&&supV6)
+		{
+			printf(" and");
+		}
+		if(supV6)
+		{
+			printf(" IPv6");
+		}
+		printf("\n");
+		
+		ai=host_serv(host,NULL,AF_UNSPEC,0);
+
+		if(supV4&&supV6)
+		{
+			if(ai->ai_family==AF_INET)
+			{
+				printf("The DNS priority is IPv4.\n");
+			}
+			else
+			{
+				printf("The DNS priority is IPv6.\n");
+			}
+		}
+	}
+	else
+	{
+		fprintf(stderr,"DNS Resolve Fail");
+		exit(2);
+	}
+	
+	if(supV4&&(expectProtocolVersion==AF_INET))
+	{
+		ai=host_serv(host,NULL,AF_INET,0);
+	}
+	else if(expectProtocolVersion==AF_INET)
+	{
+		printf("You specified ping IPv4, but the host currently not support IPv4.\n");
+		exit(2);
+	}
+
+	if(supV6&&(expectProtocolVersion==AF_INET6))
+	{
+		ai=host_serv(host,NULL,AF_INET6,0);
+	}
+	else if(expectProtocolVersion==AF_INET6)
+	{
+		printf("You specified ping IPv6, but the host currently not support IPv6.\n");
+		exit(2);
+	}
+
+	if(ai->ai_family==AF_INET)
+	{
+		int probe_fd;
+		probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
 		if(probe_fd<0)
 		{
 			perror("probe_fd error");
+			exit(2);
 		}
-		if ((connect(probe_fd,ai->ai_addr , ai->ai_addrlen) == -1) && (ttl == 0))
+		if (connect(probe_fd,ai->ai_addr , ai->ai_addrlen) == -1)
 		{
 			if (errno = EACCES)
 			{
-				// printf("%d\n",atoi(ai->ai_addr->sa_data));
-				// if (IN_MULTICAST(ntohl(*(ai->ai_addr->sa_data))))
-				// {
-				// 	multicast++;
-				// }
-				// else
 				if (broadcast_pings == 0)
 				{
 					fprintf(stderr, "Do you want to ping broadcast? Then -b. If not, check your local firewall rules.\n");
@@ -100,12 +161,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-	else
-	{
-		printf("DNS Resolve Failed.\n");
-		exit(0);
-	}
-
+	
 	/* 4initialize according to protocol */
 	if (ai->ai_family == AF_INET)
 	{
@@ -172,41 +228,42 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv)
 
 		receivedPacketNumber++;
 
-		if(rttMax==0&&rttMin==0)
+		if (rttMax == 0 && rttMin == 0)
 		{
-			rttMax=rtt;
-			rttMin=rtt;
+			rttMax = rtt;
+			rttMin = rtt;
 		}
-		if (rttMax<rtt)
+		if (rttMax < rtt)
 		{
-			rttMax=rtt;
-		}else if(rttMin>rtt)
-		{
-			rttMin=rtt;
+			rttMax = rtt;
 		}
-		rttSum+=rtt;
-		
+		else if (rttMin > rtt)
+		{
+			rttMin = rtt;
+		}
+		rttSum += rtt;
 
-		if(quietOutput==0)
+		if (quietOutput == 0)
 		{
 			printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n",
-				icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
-				icmp->icmp_seq, ip->ip_ttl, rtt);
+				   icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
+				   icmp->icmp_seq, ip->ip_ttl, rtt);
 		}
 	}
-	else if (icmp->icmp_type==ICMP_TIME_EXCEEDED)
-	{	if(quietOutput==0)
+	else if (icmp->icmp_type == ICMP_TIME_EXCEEDED)
+	{
+		if (quietOutput == 0)
 		{
-			printf("From %s icmp_seq=%u  Time to live exceeded\n",Sock_ntop_host(pr->sarecv,pr->salen),icmp->icmp_seq);
+			printf("From %s icmp_seq=%u  Time to live exceeded\n", Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_seq);
 		}
 	}
 	else if (verbose)
 	{
-		if(quietOutput==0)
+		if (quietOutput == 0)
 		{
 			printf("\n----%d bytes from %s: type = %d, code = %d\n\n",
-				icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
-				icmp->icmp_type, icmp->icmp_code);
+				   icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
+				   icmp->icmp_type, icmp->icmp_code);
 		}
 	}
 }
@@ -246,36 +303,37 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv)
 		tv_sub(tvrecv, tvsend);
 		rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
 
-				receivedPacketNumber++;
+		receivedPacketNumber++;
 
-		if(rttMax==0&&rttMin==0)
+		if (rttMax == 0 && rttMin == 0)
 		{
-			rttMax=rtt;
-			rttMin=rtt;
+			rttMax = rtt;
+			rttMin = rtt;
 		}
-		if (rttMax<rtt)
+		if (rttMax < rtt)
 		{
-			rttMax=rtt;
-		}else if(rttMin>rtt)
-		{
-			rttMin=rtt;
+			rttMax = rtt;
 		}
-		rttSum+=rtt;
-		
-		if(quietOutput==0)
+		else if (rttMin > rtt)
+		{
+			rttMin = rtt;
+		}
+		rttSum += rtt;
+
+		if (quietOutput == 0)
 		{
 			printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n",
-					icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
-					icmp6->icmp6_seq, ip6->ip6_hlim, rtt);
+				   icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
+				   icmp6->icmp6_seq, ip6->ip6_hlim, rtt);
 		}
 	}
 	else if (verbose)
 	{
-		if(quietOutput==0)
+		if (quietOutput == 0)
 		{
 			printf("\n----%d bytes from %s: type = %d, code = %d\n\n",
-				icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
-				icmp6->icmp6_type, icmp6->icmp6_code);
+				   icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
+				   icmp6->icmp6_type, icmp6->icmp6_code);
 		}
 	}
 #endif /* IPV6 */
@@ -427,13 +485,13 @@ void sig_alrm(int signo)
 
 void Statistic()
 {
-	fprintf(stderr,"\n");
-	fprintf(stderr,"---- %s ping statistics ----\n",host);
-	fprintf(stderr,"%d packets transmitted, %d received, %d%% packet loss.\n",nsent,receivedPacketNumber,
-			100-receivedPacketNumber/nsent*100);
-	if(rttSum!=0)
+	fprintf(stderr, "\n");
+	fprintf(stderr, "---- %s ping statistics ----\n", host);
+	fprintf(stderr, "%d packets transmitted, %d received, %d%% packet loss.\n", nsent, receivedPacketNumber,
+			100 - receivedPacketNumber / nsent * 100);
+	if (rttSum != 0)
 	{
-		fprintf(stderr,"rtt max/min/sum/avg %.3f/%.3f/%.3f/%.3f ms\n",rttMax,rttMin,rttSum,rttSum/receivedPacketNumber);
+		fprintf(stderr, "rtt max/min/sum/avg %.3f/%.3f/%.3f/%.3f ms\n", rttMax, rttMin, rttSum, rttSum / receivedPacketNumber);
 	}
 	exit(0);
 }
@@ -547,7 +605,6 @@ host_serv(const char *host, const char *serv, int family, int socktype)
 
 	return (res); /* return pointer to first on linked list */
 }
-/* end host_serv */
 
 static void
 err_doit(int errnoflag, int level, const char *fmt, va_list ap)

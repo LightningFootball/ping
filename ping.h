@@ -46,6 +46,7 @@ int	 sockfd;	//socket file discriptor
 double rttMax,rttMin,rttSum;
 
 /*option flags*/
+int expectProtocolVersion=0;
 int	 verbose;
 int multicast;
 int	broadcast_pings;
@@ -65,7 +66,7 @@ void	Statistic();
 void	tv_sub(struct timeval *, struct timeval *);
 
 char * Sock_ntop_host(const struct sockaddr *sa, socklen_t salen);
-struct addrinfo* host_serv(const char *host, const char *serv, int family, int socktype);
+struct addrinfo *host_serv(const char *host, const char *serv, int family, int socktype);
 static void err_doit(int errnoflag, int level, const char *fmt, va_list ap);
 void err_quit(const char *fmt, ...);
 void err_sys(const char *fmt, ...);
