@@ -7,9 +7,11 @@ ping, but a inferior version.
 
 ## make
 
-make	make
-clean	clean programs and .o
-cleano	clean only .o
+make:	make
+
+clean:	clean programs and .o
+
+cleano:	clean only .o
 
 ## compile
 
