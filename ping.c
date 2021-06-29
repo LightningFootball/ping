@@ -180,20 +180,27 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv)
 		rttSum+=rtt;
 		
 
-
-		printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n",
-			   icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
-			   icmp->icmp_seq, ip->ip_ttl, rtt);
+		if(quietOutput==0)
+		{
+			printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n",
+				icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
+				icmp->icmp_seq, ip->ip_ttl, rtt);
+		}
 	}
 	else if (icmp->icmp_type==ICMP_TIME_EXCEEDED)
-	{
-		printf("From %s icmp_seq=%u  Time to live exceeded\n",Sock_ntop_host(pr->sarecv,pr->salen),icmp->icmp_seq);
+	{	if(quietOutput==0)
+		{
+			printf("From %s icmp_seq=%u  Time to live exceeded\n",Sock_ntop_host(pr->sarecv,pr->salen),icmp->icmp_seq);
+		}
 	}
 	else if (verbose)
 	{
-		printf("\n----%d bytes from %s: type = %d, code = %d\n\n",
-			   icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
-			   icmp->icmp_type, icmp->icmp_code);
+		if(quietOutput==0)
+		{
+			printf("\n----%d bytes from %s: type = %d, code = %d\n\n",
+				icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
+				icmp->icmp_type, icmp->icmp_code);
+		}
 	}
 }
 
@@ -231,16 +238,22 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv)
 		tvsend = (struct timeval *)(icmp6 + 1);
 		tv_sub(tvrecv, tvsend);
 		rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
-
-		printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n",
-			   icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
-			   icmp6->icmp6_seq, ip6->ip6_hlim, rtt);
+		
+		if(quietOutput==0)
+		{
+			printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n",
+					icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
+					icmp6->icmp6_seq, ip6->ip6_hlim, rtt);
+		}
 	}
 	else if (verbose)
 	{
-		printf("\n----%d bytes from %s: type = %d, code = %d\n\n",
-			   icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
-			   icmp6->icmp6_type, icmp6->icmp6_code);
+		if(quietOutput==0)
+		{
+			printf("\n----%d bytes from %s: type = %d, code = %d\n\n",
+				icmp6len, Sock_ntop_host(pr->sarecv, pr->salen),
+				icmp6->icmp6_type, icmp6->icmp6_code);
+		}
 	}
 #endif /* IPV6 */
 }
