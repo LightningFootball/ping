@@ -29,7 +29,8 @@ int main(int argc, char **argv)
 			break;
 
 		case 'h':
-			printf("Usage: ping [-bhv] [-b broadcast] [-h help] [-v verbose]\n");
+			printf("Usage: ping [-bhv] [-b broadcast] [-h help] [-q quiet output]\n\t    "\
+			"[-t ttl] [-v verbose]\n");
 			exit(0);
 
 		case 'q':
