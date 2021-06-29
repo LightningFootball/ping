@@ -23,5 +23,6 @@ gcc ping.c ping.h -o ping
 ping -h
 
 ```
-Usage: ping [-bhv] [-b broadcast] [-h help] [-v verbose]
+Usage: ping [-bhv] [-b broadcast] [-h help] [-q quiet output]
+            [-t ttl] [-v verbose]
 ```

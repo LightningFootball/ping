@@ -69,9 +69,15 @@ int main(int argc, char **argv)
 
 		/*
 			检测目的地址是否为广播地址
-			仅支持IPv4
 		*/
-		int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+		int probe_fd;
+		if(ai->ai_family==AF_INET6)
+		{
+			probe_fd = socket(AF_INET6, SOCK_DGRAM, 0);
+		}else
+		{
+			probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+		}
 		if(probe_fd<0)
 		{
 			perror("probe_fd error");
@@ -239,6 +245,22 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv)
 		tvsend = (struct timeval *)(icmp6 + 1);
 		tv_sub(tvrecv, tvsend);
 		rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
+
+				receivedPacketNumber++;
+
+		if(rttMax==0&&rttMin==0)
+		{
+			rttMax=rtt;
+			rttMin=rtt;
+		}
+		if (rttMax<rtt)
+		{
+			rttMax=rtt;
+		}else if(rttMin>rtt)
+		{
+			rttMin=rtt;
+		}
+		rttSum+=rtt;
 		
 		if(quietOutput==0)
 		{
@@ -409,7 +431,10 @@ void Statistic()
 	fprintf(stderr,"---- %s ping statistics ----\n",host);
 	fprintf(stderr,"%d packets transmitted, %d received, %d%% packet loss.\n",nsent,receivedPacketNumber,
 			100-receivedPacketNumber/nsent*100);
-	fprintf(stderr,"rtt max/min/sum/avg %.3f/%.3f/%.3f/%.3f ms\n",rttMax,rttMin,rttSum,rttSum/receivedPacketNumber);
+	if(rttSum!=0)
+	{
+		fprintf(stderr,"rtt max/min/sum/avg %.3f/%.3f/%.3f/%.3f ms\n",rttMax,rttMin,rttSum,rttSum/receivedPacketNumber);
+	}
 	exit(0);
 }
 

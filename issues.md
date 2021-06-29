@@ -6,7 +6,7 @@
 - 已解决	输入错误参数时无法正确显示错误的参数，仅会显示问号
 	- 当输入的参数未列入optarg时，getopt返回"?"，并非返回此时的参数。optopt则为未识别的选项
 - 未输入网址或地址时不正确退出 err_quit
-- connect探针对IPv6地址不能按预期连接
+- 已解决 connect探针对IPv6地址不能按预期连接
 	- getaddrinfo中sa_data含义尚未明晰
 	- connect如何支持v6尚待确认
 
