@@ -46,12 +46,13 @@ int	 sockfd;	//socket file discriptor
 double rttMax,rttMin,rttSum;
 
 /*option flags*/
-int expectProtocolVersion=0;
-int	 verbose;
-int multicast;
+int	expectProtocolVersion=0;
+int	verbose;
+int	multicast;
 int	broadcast_pings;
 int	ttl;
-int quietOutput;	/* fun fact: bool is not a keyword in C, it's a key word of C++ */
+int	quietOutput;	/* fun fact: bool is not a keyword in C, it's a key word of C++ */
+int	pingCount;
 
 int    daemon_proc;            /* set nonzero by daemon_init() */
 

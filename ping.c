@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 	opterr = 0; /* don't want getopt() writing to stderr */
 	while ((c = getopt(argc, argv, "4b"
 								   "6"
-								   "hqt:v")) != -1)
+								   "c:hqt:v")) != -1)
 	/*
 		getopt 解析命令行参数
 		冒号表示参数
@@ -36,6 +36,26 @@ int main(int argc, char **argv)
 
 		case '6':
 			expectProtocolVersion = AF_INET6;
+			break;
+
+		case 'c':
+			pingCount=atoi(optarg);
+			if(pingCount<0)
+			{
+				fprintf(stderr,"ping: ping count out of range\n");
+			}
+			if(pingCount>120)
+			{
+				printf("Really? You mean really?\n");
+				printf("Type \"y\" to confirm, or anything else to exit: \n");
+				char confirm;
+				scanf("%c",&confirm);
+				if(confirm!='y'||confirm!='Y')
+				{
+					fprintf(stderr,"Nice Try!\n");
+					exit(2);
+				}
+			}
 			break;
 
 		case 'h':
@@ -116,7 +136,7 @@ int main(int argc, char **argv)
 	}
 	else
 	{
-		fprintf(stderr,"DNS Resolve Fail");
+		fprintf(stderr,"DNS Resolve Failed\n");
 		exit(2);
 	}
 	
@@ -140,6 +160,9 @@ int main(int argc, char **argv)
 		exit(2);
 	}
 
+	/*
+		为IPv4检查是否为广播地址
+	*/
 	if(ai->ai_family==AF_INET)
 	{
 		int probe_fd;
@@ -265,6 +288,11 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv)
 				   icmplen, Sock_ntop_host(pr->sarecv, pr->salen),
 				   icmp->icmp_type, icmp->icmp_code);
 		}
+	}
+	if(nsent>=pingCount)
+	{
+		Statistic();
+		exit(0);
 	}
 }
 
