@@ -59,8 +59,8 @@ int main(int argc, char **argv)
 			break;
 
 		case 'h':
-			printf("Usage: ping [-bhv] [-b broadcast] [-h help] [-q quiet output]\n\t    "
-				   "[-t ttl] [-v verbose]\n");
+			printf("Usage: ping [-4b 6 chqtv] [-4 ipv4 only] [-b broadcast] [-6 ipv6 only]\n"
+				   "       [-c count] [-h help] [-q quiet] [-t ttl] [-v verbose]\n");
 			exit(0);
 
 		case 'q':
@@ -364,7 +364,12 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv)
 				   icmp6->icmp6_type, icmp6->icmp6_code);
 		}
 	}
-#endif /* IPV6 */
+	if(nsent>=pingCount)
+	{
+		Statistic();
+		exit(0);
+	}
+	#endif /* IPV6 */
 }
 
 /*
