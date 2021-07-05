@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 			break;
 
 		case 'b':
-			broadcast_pings++;
+			++broadcast_pings;
 			break;
 
 		case '6':
@@ -39,44 +39,60 @@ int main(int argc, char **argv)
 			break;
 
 		case 'c':
-			pingCount=atoi(optarg);
-			if(pingCount<0)
+			pingCount = atoi(optarg);
+			if (strrchr(optarg, '.') != NULL || strrchr(optarg, '-') != NULL)
 			{
-				fprintf(stderr,"ping: ping count out of range\n");
+				fprintf(stderr, "Forgot to input count?\n");
+				exit(2);
 			}
-			if(pingCount>120)
+			if (pingCount <= 0)
+			{
+				fprintf(stderr, "ping: ping count out of range\n");
+				exit(2);
+			}
+			if (pingCount > 120)
 			{
 				printf("Really? You mean really?\n");
 				printf("Type \"y\" to confirm, or anything else to exit: \n");
 				char confirm;
-				scanf("%c",&confirm);
-				if(confirm!='y'||confirm!='Y')
+				confirm = (char)getchar();
+				if (confirm == 'y' || confirm == 'Y')
 				{
-					fprintf(stderr,"Nice Try!\n");
+					continue;
+				}
+				else
+				{
+					fprintf(stderr, "Nice Try!\n");
 					exit(2);
 				}
 			}
 			break;
 
 		case 'h':
-			printf("Usage: ping [-4b 6 chqtv] [-4 ipv4 only] [-b broadcast] [-6 ipv6 only]\n"
-				   "       [-c count] [-h help] [-q quiet] [-t ttl] [-v verbose]\n");
+			printf("Usage: ping [-4b6chqtv] [-4 ipv4 only] [-b broadcast] [-6 ipv6 only]\n"
+				   "            [-c count] [-h help] [-q quiet] [-t ttl] [-v verbose]\n");
 			exit(0);
 
 		case 'q':
-			quietOutput++;
+			++quietOutput;
 			break;
 
 		case 't':
 			ttl = atoi(optarg);
+			if (strrchr(optarg, '.') != NULL || strrchr(optarg, '-') != NULL)
+			{
+				fprintf(stderr, "Forgot to input ttl?\n");
+				exit(2);
+			}
 			if (ttl < 0 || ttl > 255)
 			{
-				fprintf(stderr, "ping: ttl %u out of range\n");
+				fprintf(stderr, "ping: ttl out of range\n");
+				exit(2);
 			}
 			break;
 
 		case 'v':
-			verbose++;
+			++verbose;
 			break;
 
 		case '?':
@@ -86,45 +102,49 @@ int main(int argc, char **argv)
 	}
 
 	if (optind != argc - 1)
-		err_quit("usage: ping [ -v ] <hostname>");
+	{
+		fprintf(stderr, "Usage: ping [-4b6chqtv] [-4 ipv4 only] [-b broadcast] [-6 ipv6 only]\n"
+						"            [-c count] [-h help] [-q quiet] [-t ttl] [-v verbose]\n");
+		exit(2);
+	}
 	host = argv[optind];
 
 	pid = getpid();
 	signal(SIGALRM, sig_alrm);
 	signal(SIGINT, Statistic);
 
-	int supV4=0;
-	int supV6=0;
-	if (host_serv(host, NULL, AF_INET, 0)!=NULL)
+	int supV4 = 0;
+	int supV6 = 0;
+	if (host_serv(host, NULL, AF_INET, 0) != NULL)
 	{
-		supV4++;
+		++supV4;
 	}
-	if(host_serv(host, NULL, AF_INET6, 0)!=NULL)
+	if (host_serv(host, NULL, AF_INET6, 0) != NULL)
 	{
-		supV6++;
+		++supV6;
 	}
-	if(supV4||supV6)
+	if (supV4 || supV6)
 	{
 		printf("The host support");
-		if(supV4)
+		if (supV4)
 		{
 			printf(" IPv4");
 		}
-		if(supV4&&supV6)
+		if (supV4 && supV6)
 		{
 			printf(" and");
 		}
-		if(supV6)
+		if (supV6)
 		{
 			printf(" IPv6");
 		}
 		printf("\n");
-		
-		ai=host_serv(host,NULL,AF_UNSPEC,0);
 
-		if(supV4&&supV6)
+		ai = host_serv(host, NULL, AF_UNSPEC, 0);
+
+		if (supV4 && supV6)
 		{
-			if(ai->ai_family==AF_INET)
+			if (ai->ai_family == AF_INET)
 			{
 				printf("The DNS priority is IPv4.\n");
 			}
@@ -136,25 +156,25 @@ int main(int argc, char **argv)
 	}
 	else
 	{
-		fprintf(stderr,"DNS Resolve Failed\n");
+		fprintf(stderr, "DNS Resolve Failed\n");
 		exit(2);
 	}
-	
-	if(supV4&&(expectProtocolVersion==AF_INET))
+
+	if (supV4 && (expectProtocolVersion == AF_INET))
 	{
-		ai=host_serv(host,NULL,AF_INET,0);
+		ai = host_serv(host, NULL, AF_INET, 0);
 	}
-	else if(expectProtocolVersion==AF_INET)
+	else if (expectProtocolVersion == AF_INET)
 	{
 		printf("You specified ping IPv4, but the host currently not support IPv4.\n");
 		exit(2);
 	}
 
-	if(supV6&&(expectProtocolVersion==AF_INET6))
+	if (supV6 && (expectProtocolVersion == AF_INET6))
 	{
-		ai=host_serv(host,NULL,AF_INET6,0);
+		ai = host_serv(host, NULL, AF_INET6, 0);
 	}
-	else if(expectProtocolVersion==AF_INET6)
+	else if (expectProtocolVersion == AF_INET6)
 	{
 		printf("You specified ping IPv6, but the host currently not support IPv6.\n");
 		exit(2);
@@ -163,16 +183,16 @@ int main(int argc, char **argv)
 	/*
 		为IPv4检查是否为广播地址
 	*/
-	if(ai->ai_family==AF_INET)
+	if (ai->ai_family == AF_INET)
 	{
 		int probe_fd;
 		probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
-		if(probe_fd<0)
+		if (probe_fd < 0)
 		{
 			perror("probe_fd error");
 			exit(2);
 		}
-		if (connect(probe_fd,ai->ai_addr , ai->ai_addrlen) == -1)
+		if (connect(probe_fd, ai->ai_addr, ai->ai_addrlen) == -1)
 		{
 			if (errno = EACCES)
 			{
@@ -184,7 +204,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-	
+
 	/* 4initialize according to protocol */
 	if (ai->ai_family == AF_INET)
 	{
@@ -289,7 +309,7 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv)
 				   icmp->icmp_type, icmp->icmp_code);
 		}
 	}
-	if(nsent>=pingCount)
+	if (nsent >= pingCount && pingCount != 0)
 	{
 		Statistic();
 		exit(0);
@@ -364,12 +384,12 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv)
 				   icmp6->icmp6_type, icmp6->icmp6_code);
 		}
 	}
-	if(nsent>=pingCount)
+	if (nsent >= pingCount && pingCount != 0)
 	{
 		Statistic();
 		exit(0);
 	}
-	#endif /* IPV6 */
+#endif /* IPV6 */
 }
 
 /*
@@ -473,7 +493,7 @@ void readloop(void)
 		setsockopt(sockfd, SOL_IP, IP_MULTICAST_ALL, &size, sizeof(size));
 	}
 
-	if (ttl)
+	if (ttl != -1)
 	{
 		if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)))
 		{

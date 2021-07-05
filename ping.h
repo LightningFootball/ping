@@ -47,12 +47,13 @@ double rttMax,rttMin,rttSum;
 
 /*option flags*/
 int	expectProtocolVersion=0;
-int	verbose;
+int	verbose=0;
 int	multicast;
-int	broadcast_pings;
-int	ttl;
-int	quietOutput;	/* fun fact: bool is not a keyword in C, it's a key word of C++ */
-int	pingCount;
+int	broadcast_pings=0;
+int	ttl=-1;
+int	quietOutput=0;	/* fun fact: bool is not a keyword in C, it's a key word of C++ */
+int	pingCount=0;
+int flood=0;	/*deluge!*/
 
 int    daemon_proc;            /* set nonzero by daemon_init() */
 
